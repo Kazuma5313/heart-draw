@@ -185,6 +185,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 .popin{animation:popin .7s cubic-bezier(.3,1.5,.5,1) both}
 @keyframes popin{from{transform:scale(.4) rotateY(90deg);opacity:0}}
 
+/* かくして当てる */
+.skill.guess{border-color:#9B7BFF;background:linear-gradient(135deg,#2E1A6E,#150F3A)}
+.skill.guess .ic{background:linear-gradient(135deg,#B06BFF,#FF4DD2);color:#fff}
+.dcard.secret .face.back{box-shadow:0 0 0 2px #B7A6FF inset,0 0 30px rgba(176,107,255,.5)}
+.odai .qq{color:#CFC3FF}
+
 /* 開封演出 */
 .fx{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:65}
 .rv-dim{position:fixed;inset:0;z-index:30;background:radial-gradient(circle at 50% 45%,transparent 0,rgba(3,4,12,.75) 55%,rgba(3,4,12,.95));pointer-events:none;animation:fadein .4s both}
@@ -306,7 +312,14 @@ const QUESTIONS=['それっていつのこと？','だれといっしょだっ�
  '今思い出すと、どんな気持ち？','相手に伝えられた？','もう一回あったらどうする？','一番おぼえてる言葉は？','どこで起きたの？',
  'そのときの音やにおいは？','ほかにもにたことある？'];
 const SKILLS=[
- {id:'mask',name:'正体をかくせ',text:'だれへの気持ちかは言わずに話す。話し終わったら、みんなで「だれのこと？」を当てよう。',ok:'当てられた'},
+ {id:'mask',name:'正体をかくせ',text:'だれへの気持ちかは言わずに話す。話し終わったら、みんなで「だれのこと？」を当てよう。',ok:'当てられた',guess:1},
+ {id:'hideE',name:'気持ちをかくせ',text:'気持ちカードは話す人だけが見る。気持ちの言葉は言わずに話して、聞く人は「どの気持ち？」を当てよう。',ok:'当てられた',guess:1,hide:'E'},
+ {id:'hideS',name:'場面をかくせ',text:'場面カードは話す人だけが見る。いつ・どこの話かは言わずに話して、聞く人は場面を当てよう。',ok:'当てられた',guess:1,hide:'S'},
+ {id:'when',name:'いつの話？',text:'いつのことかは言わずに話そう。話し終わったら、聞く人が「いつの話？」を当てる。',ok:'当てられた',guess:1},
+ {id:'where',name:'どこの話？',text:'どこで起きたかは言わずに話そう。話し終わったら、聞く人が場所を当てる。',ok:'当てられた',guess:1},
+ {id:'end',name:'オチをかくせ',text:'最後に「どうなったか」だけ言わずに止める。聞く人が結末を予想して、当たったら成功。',ok:'予想が当たった',guess:1},
+ {id:'thing',name:'主役をかくせ',text:'話に出てくる「もの」や「人」を1つ決めて、名前を言わずに話す。聞く人が当てよう。',ok:'当てられた',guess:1},
+ {id:'ng',name:'NGワード',text:'場面カードの言葉（例：「おふろ」）を言わずに話そう。うっかり言ったらアウト。',ok:'最後まで言わなかった',guess:1},
  {id:'all',name:'オールトーク',text:'聞いていた人も、同じお題でひとことずつ話そう。',ok:'全員話せた'},
  {id:'t30',name:'30秒チャレンジ',text:'30秒以内に話しきろう。タイマーを押してスタート。',ok:'時間内に話せた',timer:30},
  {id:'slip',name:'タイムスリップ',text:'大人は自分が子どもだったころの話で。子どもはもっと小さいころの話で。',ok:'話せた'},
@@ -617,14 +630,14 @@ let S={screen:'home',players:saved.players||['パパ','ママ','ハルト'],roun
 function newGame(){
   const total=S.players.length*S.rounds;
   Object.assign(S,{idx:0,total,target:Math.max(1,Math.round(total*.4)),cards:[],redraw:S.players.map(()=>1),
-    dE:shuffle(EMO.map(e=>e.id)),dS:shuffle(SCENES.map((_,i)=>i)),dK:shuffle(SKILLS.map(s=>s.id))});
+    dE:shuffle(EMO.map(e=>e.id)),dS:shuffle(SCENES.map((_,i)=>i)),dK:shuffle(SKILLS.filter(s=>!s.guess).map(s=>s.id)),dG:shuffle(SKILLS.filter(s=>s.guess).map(s=>s.id))});
   startTurn();
 }
 function pull(k,src){if(!S[k].length)S[k]=shuffle(src);return S[k].pop()}
 const pullE=()=>pull('dE',EMO.map(e=>e.id)),pullS=()=>pull('dS',SCENES.map((_,i)=>i));
 function startTurn(){
-  const skill=S.idx>0&&Math.random()<.4?pull('dK',SKILLS.map(s=>s.id)):null;
-  S.cur={emo:pullE(),scene:pullS(),skill,fE:false,fS:false,phase:'draw',chips:shuffle(QUESTIONS).slice(0,6),asked:[],own:0,boost:false,timer:null,title:'',memo:'',revealed:false};
+  const skill=S.idx>0&&Math.random()<.6?(Math.random()<.67?pull('dG',SKILLS.filter(s=>s.guess).map(s=>s.id)):pull('dK',SKILLS.filter(s=>!s.guess).map(s=>s.id))):null;
+  S.cur={emo:pullE(),scene:pullS(),skill,fE:false,fS:false,phase:'draw',chips:shuffle(QUESTIONS).slice(0,6),asked:[],own:0,boost:false,timer:null,title:'',memo:'',revealed:false,opened:false};
   setGlow('#4FA3FF');
 }
 const depth=()=>S.cur.asked.length+S.cur.own;
@@ -653,7 +666,7 @@ function rulesBody(){
     <li><span class="n">03<br>CARD</span><div><b>話にタイトルをつけて、カード化</b><span class="soft">開封するとレア度が決まる。できたカードは家族のファイルに残る。</span></div></li>
    </ol>
    <div class="rtable">${[0,1,2,3].map(t=>`<div><b style="color:${RAR[t].col}">${RAR[t].s}</b><span>深掘り${t}回${t===3?'〜':''}</span></div>`).join('')}</div>
-   <p class="small soft">ときどき<b style="color:#B7A6FF">スキルカード</b>が出ます。ミッションに成功するとレア度が1つ上がり、URの上の<b>SEC（シークレット）</b>もねらえます。<br>勝ち負けはありません。家族みんなで「SR以上を○枚」のミッションに挑みます。</p>`;
+   <p class="small soft">ときどき<b style="color:#B7A6FF">スキルカード</b>が出ます。とくに多いのが「気持ちをかくせ」「オチをかくせ」など、<b>何かをかくして話し、聞く人が当てる</b>カード。当たったらほかのスキルも成功すると、レア度が1つ上がり、URの上の<b>SEC（シークレット）</b>もねらえます。<br>勝ち負けはありません。家族みんなで「SR以上を○枚」のミッションに挑みます。</p>`;
 }
 function rules(){return `<section class="screen"><div class="topbar"><button class="link" data-go="home">← もどる</button></div>
   <h2 style="font-size:28px">あそびかた</h2><div class="panel">${rulesBody()}</div>
@@ -680,27 +693,31 @@ function hud(){
    <div class="mission"><span>ミッション：<b>SR以上を${S.target}枚</b></span><span class="tech">${got} / ${S.target}</span></div>
   </div>`;
 }
-function odaiHTML(){const c=S.cur,e=emo(c.emo),sc=SCENES[c.scene];
-  return `<div class="odai" style="--c:${e.c}"><span class="lead">THEME</span><div class="q">${sc[1]}<span class="x">×</span><span class="e">${e.label}</span></div><div class="h">${e.hint}</div></div>`}
-function skillHTML(){const k=S.cur.skill&&SKILLS.find(s=>s.id===S.cur.skill);if(!k)return'';
-  return `<div class="skill"><span class="ic">SKILL<br>CARD</span><span class="tag">成功でレア度 +1</span><div><h3>${k.name}</h3><p>${k.text}</p></div></div>`}
+const skillOf=c=>c&&c.skill&&SKILLS.find(s=>s.id===c.skill);
+const hidden=(c,X)=>{const k=skillOf(c);return !!(k&&k.hide===X&&!c.opened)};
+function odaiHTML(){const c=S.cur,e=emo(c.emo),sc=SCENES[c.scene],hE=hidden(c,'E'),hS=hidden(c,'S');
+  return `<div class="odai" style="--c:${hE?'#B7A6FF':e.c}"><span class="lead">THEME</span><div class="q">${hS?'<span class="qq">？？？</span>':sc[1]}<span class="x">×</span><span class="e">${hE?'？？？':e.label}</span></div><div class="h">${hE||hS?'かくした札は、話す人だけが知っています。聞く人は当てよう':e.hint}</div></div>`}
+function skillHTML(){const k=skillOf(S.cur);if(!k)return'';
+  return `<div class="skill ${k.guess?'guess':''}"><span class="ic">${k.guess?'HIDE &amp;<br>GUESS':'SKILL<br>CARD'}</span><span class="tag">${k.guess?'当たったら':'成功で'}レア度 +1</span><div><h3>${k.name}</h3><p>${k.text}</p></div></div>`}
 function play(){
   const c=S.cur,e=emo(c.emo),sc=SCENES[c.scene],pi=S.idx%S.players.length,name=who();
   let body='';
   if(c.phase==='draw'){
-    const both=c.fE&&c.fS,can=S.redraw[pi]>0;
+    const both=c.fE&&c.fS,can=S.redraw[pi]>0,k=skillOf(c),hX=k&&k.hide;
+    const sec=(X)=>hX===X?(c['f'+X]?'<span class="lab">SECRET</span><span class="emb">秘</span><span class="q">確認ずみ<br>タップでもう一度</span>':'<span class="lab">SECRET</span><span class="emb">秘</span><span class="q">話す人だけ<br>タップして見る</span>'):'';
     body=`<div class="turn"><h2 style="color:${pcol(pi)}">${esc(name)}の番</h2><span class="tech">${both?'READY':'TAP TO FLIP'}</span></div>
+     ${hX?`${skillHTML()}<p class="small center" style="color:#CFC3FF">聞く人は目をそらして！ ${esc(name)}だけが${hX==='E'?'気持ち':'場面'}カードを3秒見られます</p>`:''}
      <div class="draws">
-      <div class="dcol"><button class="dcard ${c.fS?'flipped':''}" data-flip="S" aria-label="${c.fS?'場面：'+sc[1]:'場面カードをめくる'}"><div class="inner">
-        <div class="face back" style="--bk:#2E5BFF"><span class="lab">SCENE</span><span class="emb">場</span><span class="q">いつ？どこで？</span></div>
+      <div class="dcol"><button class="dcard ${(c.fS&&hX!=='S')||c.peek==='S'?'flipped':''} ${hX==='S'?'secret':''}" data-flip="S" aria-label="${hX==='S'?'場面カード（話す人だけ見る）':c.fS?'場面：'+sc[1]:'場面カードをめくる'}"><div class="inner">
+        <div class="face back" style="--bk:${hX==='S'?'#6B4BFF':'#2E5BFF'}">${sec('S')||'<span class="lab">SCENE</span><span class="emb">場</span><span class="q">いつ？どこで？</span>'}</div>
         <div class="face front" style="--c:#3D5AFE;--c2:#1A237E"><div class="in"><span class="kind">SCENE</span><span class="big">${sc[0]}</span><span class="word">${sc[1]}</span></div></div></div></button>
         ${both&&can?'<button class="redraw" data-re="S">↻ 引きなおす</button>':''}</div>
-      <div class="dcol"><button class="dcard ${c.fE?'flipped':''}" data-flip="E" aria-label="${c.fE?'気持ち：'+e.label:'気持ちカードをめくる'}"><div class="inner">
-        <div class="face back" style="--bk:#FF3D7F"><span class="lab">EMOTION</span><span class="emb">心</span><span class="q">どんな気持ち？</span></div>
+      <div class="dcol"><button class="dcard ${(c.fE&&hX!=='E')||c.peek==='E'?'flipped':''} ${hX==='E'?'secret':''}" data-flip="E" aria-label="${hX==='E'?'気持ちカード（話す人だけ見る）':c.fE?'気持ち：'+e.label:'気持ちカードをめくる'}"><div class="inner">
+        <div class="face back" style="--bk:${hX==='E'?'#6B4BFF':'#FF3D7F'}">${sec('E')||'<span class="lab">EMOTION</span><span class="emb">心</span><span class="q">どんな気持ち？</span>'}</div>
         <div class="face front" style="--c:${e.c};--c2:${e.c2}"><div class="in"><span class="kind">EMOTION</span><span class="big glyph">${e.g}</span><div><div class="word">${e.label}</div><div class="en">${e.en}</div></div></div></div></div></button>
         ${both&&can?'<button class="redraw" data-re="E">↻ 引きなおす</button>':''}</div>
      </div>
-     ${both?`${odaiHTML()}${skillHTML()}
+     ${both?`${odaiHTML()}${hX?'':skillHTML()}
       <p class="small soft center">${can?'話せそうにないときは、どちらか1枚を引きなおせます（1人1回）':'引きなおしは使いきりました'}</p>
       <button class="btn go block" data-talk>このお題で話す</button>`:`<p class="small soft center">2枚ともタップしてめくろう</p>`}`;
   }else if(c.phase==='talk'){
@@ -711,7 +728,8 @@ function play(){
      <div class="sec"><h3>聞く人：深掘り質問をしよう</h3><p class="small soft">質問して、${esc(name)}が答えたらタップ。</p>
       <div class="chips">${c.chips.map((q,i)=>`<button class="chip ${c.asked.includes(i)?'done':''}" data-q="${i}">${q}</button>`).join('')}
        <button class="chip own" data-own>＋ 自分で考えた質問${c.own?` ×${c.own}`:''}</button></div></div>
-     ${k?`<button class="btn block boost ${c.boost?'got':''}" data-boost>${c.boost?'スキル成功！ レア度 +1':`スキル成功：${k.ok}`}</button>`:''}
+     ${k&&k.hide&&!c.opened?`<button class="btn block boost" data-answer>答え合わせ：かくした札をオープン</button>`:
+       k?`<button class="btn block boost ${c.boost?'got':''}" data-boost>${c.boost?(k.guess?'正解！ レア度 +1':'スキル成功！ レア度 +1'):(k.guess?`${k.ok}！ → レア度 +1`:`スキル成功：${k.ok}`)}</button>`:''}
      <button class="btn go block" data-fin>話しおわった → カード化へ</button>`;
   }else if(c.phase==='name'){
     body=`${odaiHTML()}
@@ -790,14 +808,17 @@ document.addEventListener('click',e=>{
   if('askdel' in d){$('#delbox').innerHTML=`<div class="confirm"><p>このカードを消しますか？ もとには戻せません。</p><div class="row"><button class="btn" data-close>やめる</button><button class="btn" data-dodel style="border-color:#FF4D6D;color:#FF8FA3">消す</button></div></div>`;return}
   if('dodel' in d){const l=store('hd.cards')||[];l.splice(S.modal.i,1);store('hd.cards',l);S.modal=null;render();return}
   const c=S.cur;if(!c)return;
+  if(d.flip&&skillOf(c)?.hide===d.flip){if(c.peek)return;c.peek=d.flip;sfx.flip();t.classList.add('flipped');
+    setTimeout(()=>{if(S.cur!==c)return;c.peek=null;c['f'+d.flip]=true;render()},3000);return}
   if(d.flip){const k='f'+d.flip;if(c[k])return;c[k]=true;sfx.flip();if(d.flip==='E')setGlow(emo(c.emo).c);t.classList.add('flipped');setTimeout(render,700);return}
   if(d.re){S.redraw[S.idx%S.players.length]--;if(d.re==='S')c.scene=pullS();else c.emo=pullE();c['f'+d.re]=false;render();return}
   if('talk' in d){c.phase='talk';render();scrollTo({top:0});return}
   if(d.q!==undefined){const i=+d.q;if(c.asked.includes(i))return;const before=tierOf(depth(),false);c.asked.push(i);t.classList.add('done');bump(before);return}
   if('own' in d){const before=tierOf(depth(),false);c.own++;t.textContent=`＋ 自分で考えた質問 ×${c.own}`;bump(before);return}
+  if('answer' in d){c.opened=true;sfx.reveal(1);if(skillOf(c).hide==='E')setGlow(emo(c.emo).c);render();return}
   if('boost' in d){c.boost=!c.boost;if(c.boost)sfx.up(3);render();return}
   if('timer' in d){runTimer();return}
-  if('fin' in d){clearInterval(timerId);c.phase='name';render();scrollTo({top:0});return}
+  if('fin' in d){clearInterval(timerId);c.opened=true;c.phase='name';render();scrollTo({top:0});return}
   if('mint' in d){mint();return}
   if('open' in d){openSeal();return}
   if('next' in d){S.idx++;if(S.idx>=S.total){S.screen='result';setGlow('#FFD23F')}else startTurn();render();scrollTo({top:0});return}
@@ -830,7 +851,7 @@ document.addEventListener('pointerout',e=>{const el=e.target.closest?.('.tilt');
 
 /* ===== 更新が届いても遊んでいる途中の状態を残す ===== */
 function snap(){try{window.claude?.hot?.snapshot?.(()=>({S}))}catch(e){}}
-function start(data){if(data&&data.S){S=data.S;if(S.cur&&S.screen==='play'&&S.cur.fE)setGlow(emo(S.cur.emo).c)}render()}
+function start(data){if(data&&data.S){S=data.S;if(S.cur&&S.screen==='play'&&S.cur.fE&&!hidden(S.cur,'E'))setGlow(emo(S.cur.emo).c)}render()}
 try{document.fonts.ready.then(()=>{ARTC.clear();if(!document.activeElement||document.activeElement===document.body)render()})}catch(e){}
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 </script>
